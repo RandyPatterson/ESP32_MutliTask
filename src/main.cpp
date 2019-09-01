@@ -4,43 +4,18 @@
     https://github.com/Xinyuan-LilyGO/TTGO-T-Display
  */
 #include <Arduino.h>
-
-#include <ETH.h>
-#include <WiFi.h>
-#include <WiFiAP.h>
-#include <WiFiClient.h>
-#include <WiFiGeneric.h>
-#include <WiFiMulti.h>
-#include <WiFiScan.h>
-#include <WiFiServer.h>
-#include <WiFiSTA.h>
-#include <WiFiType.h>
-#include <WiFiUdp.h>
-
-#include <SPI.h>
-
 #include "TFTDriver.h"
 #include <SPI.h>
-#include "WiFi.h"
-#include <Wire.h>
-#include "esp_adc_cal.h"
-#include <Ticker.h>
 
 #define TFT_MOSI            19
 #define TFT_SCLK            18
 #define TFT_CS              5
 #define TFT_DC              16
 #define TFT_RST             23
-
-#define TFT_BL          4  // Display backlight control pin
-#define ADC_EN          14
-#define ADC_PIN         34
-#define BUTTON_1        35
-#define BUTTON_2        0
-#define BUTTONS_MAP     {BUTTON_1,BUTTON_2}
+#define TFT_BL              4  // Display backlight control pin
 
 TFTDriver tft = TFTDriver(135, 240); // Invoke custom library
-SemaphoreHandle_t _lock = NULL;
+SemaphoreHandle_t _syncLock = NULL;
 
 int16_t count0 = 0;
 int16_t count1 = 0;
@@ -49,15 +24,15 @@ void Task0( void * pvParameters )
 {
     String core = String(xPortGetCoreID());
     while(true){
-        String counter = String(count0++);
-        
+        String counter = String(count0++);        
         String message = "Core: " + core + " - "  + counter; 
-        xSemaphoreTake(_lock,portMAX_DELAY); //aquire lock before using tft
+        
+        xSemaphoreTake(_syncLock,portMAX_DELAY); //aquire lock before using tft
             //Serial.println(message);
             tft.fillRect(0,0,tft.width(),19,TFT_BLACK);
             tft.setTextColor(TFT_GREEN);
             tft.drawString(message,0,0);
-        xSemaphoreGive(_lock);  //release lock
+        xSemaphoreGive(_syncLock);  //release lock
         delay(850);
     }
 }
@@ -70,12 +45,12 @@ void Task1( void * pvParameters )
         String counter = String(count1++);
         
         String message = "Core: " + core + " - "  + counter; 
-        xSemaphoreTake(_lock,portMAX_DELAY); //aquire lock before using tft
+        xSemaphoreTake(_syncLock,portMAX_DELAY); //aquire lock before using tft
             //Serial.println(message);
             tft.fillRect(0,30,tft.width(),49,TFT_BLACK);
             tft.setTextColor(TFT_RED);
             tft.drawString(message,0,30);
-        xSemaphoreGive(_lock);  //release lock
+        xSemaphoreGive(_syncLock);  //release lock
 
         delay(1000);
     }
@@ -84,7 +59,7 @@ void Task1( void * pvParameters )
 
 void setup()
 {
-    vSemaphoreCreateBinary(_lock);  /* Create binary semaphore */
+    vSemaphoreCreateBinary(_syncLock);  /* Create binary semaphore */
 
 
     Serial.begin(115200);
